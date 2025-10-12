@@ -11,8 +11,9 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/courses_screen.dart';
-import 'screens/about_page.dart'; // Import your AboutPage
+import 'screens/about_page.dart';
 import 'services/notification_service.dart';
+import 'services/offline_service.dart'; // ← ADD THIS IMPORT
 
 // Background message handler
 @pragma('vm:entry-point')
@@ -25,6 +26,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp();
+
+  // Initialize offline service ← ADD THIS
+  await OfflineService.initialize();
 
   // Set background message handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -58,11 +62,13 @@ class XpertBotApp extends StatelessWidget {
         '/home': (context) => const HomeScreen(),
         '/courses': (context) =>
             const CoursesScreen(trackId: 'web', trackTitle: 'Web Development'),
-        '/about': (context) => const AboutPage(), // Your actual AboutPage
+        '/about': (context) => const AboutPage(),
       },
       builder: (context, child) {
         return MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(1.0)),
           child: child!,
         );
       },

@@ -12,7 +12,7 @@ class CourseService {
         .snapshots()
         .map((snapshot) {
           return snapshot.docs.map((doc) {
-            return Course.fromFirestore(doc.data()!, doc.id);
+            return Course.fromFirestore(doc.data(), doc.id);
           }).toList();
         });
   }

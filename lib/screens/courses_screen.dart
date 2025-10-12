@@ -63,11 +63,13 @@ class _CoursesScreenState extends State<CoursesScreen> {
       ),
       body: Column(
         children: [
-          // Offline Banner
+          // Enhanced Offline Banner
           StreamBuilder<bool>(
             stream: OfflineService.connectivityStream,
             builder: (context, snapshot) {
               final isOnline = snapshot.data ?? true;
+              final courseController = Provider.of<CourseController>(context);
+
               if (isOnline) return const SizedBox.shrink();
 
               return Container(
@@ -76,17 +78,31 @@ class _CoursesScreenState extends State<CoursesScreen> {
                   vertical: 8,
                   horizontal: 16,
                 ),
-                color: Colors.orange[100],
+                color: courseController.isOfflineData
+                    ? Colors.green[50]
+                    : Colors.orange[100],
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.wifi_off, size: 16, color: Colors.orange[800]),
+                    Icon(
+                      courseController.isOfflineData
+                          ? Icons.download_done
+                          : Icons.wifi_off,
+                      size: 16,
+                      color: courseController.isOfflineData
+                          ? Colors.green
+                          : Colors.orange[800],
+                    ),
                     const SizedBox(width: 8),
                     Text(
-                      'You are offline - showing cached content',
+                      courseController.isOfflineData
+                          ? 'Offline Mode - Cached courses available'
+                          : 'You are offline - connect to download courses',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.orange[800],
+                        color: courseController.isOfflineData
+                            ? Colors.green
+                            : Colors.orange[800],
                         fontFamily: 'Poppins',
                       ),
                     ),
@@ -129,15 +145,40 @@ class _CoursesScreenState extends State<CoursesScreen> {
   Widget _buildContent(CourseController courseController) {
     // Show loading indicator
     if (courseController.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading courses...', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
     }
 
     // Show empty state
     if (courseController.courses.isEmpty) {
-      return const Center(
-        child: Text(
-          'No courses available for this track',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.school_outlined, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text(
+              courseController.isOfflineData
+                  ? 'No cached courses available'
+                  : 'No courses available for this track',
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+            if (!courseController.isOfflineData) ...[
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () => courseController.loadCourses(widget.trackId),
+                child: const Text('Try Again'),
+              ),
+            ],
+          ],
         ),
       );
     }
@@ -150,27 +191,51 @@ class _CoursesScreenState extends State<CoursesScreen> {
         children: [
           _buildTrackHeader(),
           const SizedBox(height: 24),
-          _buildCoursesList(courseController.courses),
+          _buildCoursesList(courseController),
         ],
       ),
     );
   }
 
-  Widget _buildCoursesList(List<Course> courses) {
+  Widget _buildCoursesList(CourseController courseController) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Available Courses',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Poppins',
-            color: Color(0xFF3E4C81),
-          ),
+        Row(
+          children: [
+            Text(
+              'Available Courses',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
+                color: const Color(0xFF3E4C81),
+              ),
+            ),
+            if (courseController.isOfflineData) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Cached',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.green[800],
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 16),
-        ...courses.map((course) => _buildCourseItem(course)).toList(),
+        ...courseController.courses
+            .map((course) => _buildCourseItem(course))
+            .toList(),
       ],
     );
   }

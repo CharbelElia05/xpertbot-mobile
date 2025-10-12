@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/course_model.dart';
 import '../services/course_service.dart';
+import '../services/offline_service.dart'; // Add this import
 
 class CourseController with ChangeNotifier {
   final CourseService _courseService = CourseService();
@@ -8,20 +9,55 @@ class CourseController with ChangeNotifier {
   List<Course> _courses = [];
   bool _isLoading = false;
   String? _error;
+  bool _isOfflineData = false; // ← ADD THIS
 
   List<Course> get courses => _courses;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get isOfflineData => _isOfflineData; // ← ADD THIS GETTER
 
   // Load courses for a track
   Future<void> loadCourses(String trackId) async {
     _isLoading = true;
     _error = null;
+    _isOfflineData = false; // ← SET DEFAULT
     notifyListeners();
 
     try {
-      // For now, using hardcoded data as fallback
-      _courses = _getHardcodedCourses(trackId);
+      // Check if offline and has cached data
+      final isOnline = await OfflineService.isConnected;
+
+      if (!isOnline) {
+        final cachedCourses = OfflineService.getCachedCourses(trackId);
+        if (cachedCourses != null) {
+          // Use cached data when offline
+          _courses = cachedCourses.map((data) => Course.fromMap(data)).toList();
+          _isOfflineData = true; // ← MARK AS OFFLINE DATA
+        } else {
+          // No cached data available offline
+          _courses = _getHardcodedCourses(trackId);
+        }
+      } else {
+        // Online - use normal data and cache it
+        _courses = _getHardcodedCourses(trackId);
+
+        // Cache courses for offline use
+        final coursesData = _courses
+            .map(
+              (course) => {
+                'id': course.id,
+                'title': course.title,
+                'trackId': course.trackId,
+                'lessonCount': course.lessonCount,
+                'imageUrl': course.imageUrl,
+                'videoId': course.videoId,
+              },
+            )
+            .toList();
+
+        await OfflineService.cacheCourses(trackId, coursesData);
+      }
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
