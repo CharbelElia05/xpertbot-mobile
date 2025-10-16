@@ -289,6 +289,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               fontFamily: 'Poppins',
+                              color: Colors.white, // 👈 added this line
                             ),
                           ),
                         ),

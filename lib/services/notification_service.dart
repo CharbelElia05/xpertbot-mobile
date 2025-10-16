@@ -1,162 +1,128 @@
+import 'dart:io';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 class NotificationService {
-  static final FirebaseMessaging _firebaseMessaging =
-      FirebaseMessaging.instance;
+  static final FirebaseMessaging _fm = FirebaseMessaging.instance;
+  static final FlutterLocalNotificationsPlugin _fln =
+      FlutterLocalNotificationsPlugin();
 
-  // Initialize notifications completely
+  static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
+    'default_channel', // id
+    'General Notifications', // title
+    description: 'App notifications',
+    importance: Importance.high,
+  );
+
   static Future<void> initialize() async {
     try {
-      // Request permission (iOS)
-      NotificationSettings settings = await _firebaseMessaging
-          .requestPermission(alert: true, badge: true, sound: true);
+      // Ask permission (Android 13+/iOS)
+      final settings = await _fm.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      print('Notification permission: ${settings.authorizationStatus}');
 
-      print('Notification permission status: ${settings.authorizationStatus}');
+      // Local notifications init
+      const initAndroid = AndroidInitializationSettings('ic_notification');
+      const initSettings = InitializationSettings(android: initAndroid);
+      await _fln.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: (resp) {
+          // Handle taps on foreground notifications if needed
+          // print('Tapped payload: ${resp.payload}');
+        },
+      );
 
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        print('User granted notification permission');
+      // Create the Android channel (safe to call multiple times)
+      await _fln
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.createNotificationChannel(_channel);
 
-        // Get FCM token
-        String? token = await _getFCMToken();
+      // Token (for console test)
+      final token = await _fm.getToken();
+      print('🔹 FCM Token: $token');
 
-        // Setup message handlers
-        _setupMessageHandlers();
+      // Background/terminated handler must be set at app start (you already do in main)
+      // FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-        // Subscribe to topics
-        await _subscribeToTopics();
+      // Foreground messages -> show local notif
+      FirebaseMessaging.onMessage.listen(_onForegroundMessage);
 
-        print('Notification service initialized successfully');
-      } else {
-        print('User declined or has provisional notification permission');
-      }
+      // Opened from background
+      FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageNavigation);
+
+      // Opened from terminated
+      final initial = await _fm.getInitialMessage();
+      if (initial != null) _handleMessageNavigation(initial);
+
+      // Topics (optional)
+      await subscribeToTopics();
+
+      print('✅ NotificationService initialized');
     } catch (e) {
-      print('Error initializing notifications: $e');
+      print('❌ Notification init error: $e');
     }
   }
 
-  static Future<String?> _getFCMToken() async {
-    try {
-      String? token = await _firebaseMessaging.getToken();
-      print('FCM Token: $token');
+  static void _onForegroundMessage(RemoteMessage message) {
+    final n = message.notification;
+    final title = n?.title ?? 'XpertBot Academy';
+    final body = n?.body ?? 'New notification';
+    print('📱 Foreground message: ${message.data}');
 
-      // Save token to Firestore (for sending targeted notifications)
-      _saveTokenToFirestore(token);
-
-      return token;
-    } catch (e) {
-      print('Error getting FCM token: $e');
-      return null;
+    // Show a heads-up notification on Android
+    if (Platform.isAndroid) {
+      _fln.show(
+        n.hashCode,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channel.id,
+            _channel.name,
+            channelDescription: _channel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: 'ic_notification',
+          ),
+        ),
+        payload: message.data.toString(),
+      );
     }
-  }
-
-  static void _saveTokenToFirestore(String? token) {
-    if (token != null) {
-      // TODO: Save token to Firestore user document
-      // Example: FirebaseFirestore.instance.collection('users').doc(userId).update({'fcmToken': token});
-      print('Save this token to user document: $token');
-    }
-  }
-
-  static void _setupMessageHandlers() {
-    // Handle when app is in FOREGROUND
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('📱 Foreground message received!');
-      print('Message ID: ${message.messageId}');
-      print('Message data: ${message.data}');
-      print('Message notification: ${message.notification}');
-
-      // Show local notification
-      _showLocalNotification(message);
-    });
-
-    // Handle when app is in BACKGROUND but opened
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('📱 Background message opened!');
-      print('Message data: ${message.data}');
-
-      // Navigate to specific screen based on message data
-      _handleMessageNavigation(message);
-    });
-
-    // Handle initial message when app is launched from terminated state
-    FirebaseMessaging.instance.getInitialMessage().then((
-      RemoteMessage? message,
-    ) {
-      if (message != null) {
-        print('📱 App launched from notification!');
-        print('Message data: ${message.data}');
-        _handleMessageNavigation(message);
-      }
-    });
-  }
-
-  static void _showLocalNotification(RemoteMessage message) {
-    // For now, we'll just print since we don't have flutter_local_notifications
-    // In production, you'd show a proper local notification
-
-    final title = message.notification?.title ?? 'XpertBot Academy';
-    final body = message.notification?.body ?? 'New notification';
-
-    print('🔔 Show notification: $title - $body');
-
-    // You can add flutter_local_notifications later for better UX
-    // _localNotifications.show(...);
   }
 
   static void _handleMessageNavigation(RemoteMessage message) {
-    // Navigate based on message data
     final data = message.data;
-
-    if (data['type'] == 'new_course') {
-      print('🎯 Navigate to new course: ${data['course_id']}');
-      // Navigator.push(context, MaterialPageRoute(builder: (_) => CourseDetailScreen()));
-    } else if (data['type'] == 'reminder') {
-      print('🎯 Navigate to home for reminder');
-      // Navigator.push(context, MaterialPageRoute(builder: (_) => HomeScreen()));
-    } else if (data['type'] == 'achievement') {
-      print('🎯 Navigate to profile for achievement');
-      // Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen()));
-    } else {
-      print('🎯 Navigate to home (default)');
-      // Navigator.push(context, MaterialPageRoute(builder: (_) => HomeScreen()));
-    }
+    print('🔁 Opened from notification. Data: $data');
+    // TODO: use a navigator/service to route based on `data`
+    // e.g., if (data['type'] == 'new_course') { ... }
   }
 
-  // Subscribe to topics - MAKE THIS PUBLIC
+  // ---- Topics API you already had ----
   static Future<void> subscribeToTopics() async {
     try {
-      await _firebaseMessaging.subscribeToTopic('all_users');
-      await _firebaseMessaging.subscribeToTopic('xpertbot_academy');
-      await _firebaseMessaging.subscribeToTopic('web_development');
-      await _firebaseMessaging.subscribeToTopic('mobile_development');
-      print('✅ Subscribed to notification topics');
+      await _fm.subscribeToTopic('all_users');
+      await _fm.subscribeToTopic('xpertbot_academy');
+      await _fm.subscribeToTopic('web_development');
+      await _fm.subscribeToTopic('mobile_development');
+      print('✅ Subscribed to topics');
     } catch (e) {
-      print('❌ Error subscribing to topics: $e');
+      print('❌ Topic subscribe error: $e');
     }
   }
 
-  // Private method for automatic subscription during initialization
-  static Future<void> _subscribeToTopics() async {
-    await subscribeToTopics(); // Call the public method
-  }
-
-  // Unsubscribe from topics (optional)
   static Future<void> unsubscribeFromTopic(String topic) async {
     try {
-      await _firebaseMessaging.unsubscribeFromTopic(topic);
-      print('✅ Unsubscribed from topic: $topic');
+      await _fm.unsubscribeFromTopic(topic);
+      print('✅ Unsubscribed: $topic');
     } catch (e) {
-      print('❌ Error unsubscribing from topic: $e');
+      print('❌ Unsubscribe error: $e');
     }
   }
 
-  // Get current FCM token
-  static Future<String?> getCurrentToken() async {
-    try {
-      return await _firebaseMessaging.getToken();
-    } catch (e) {
-      print('❌ Error getting current token: $e');
-      return null;
-    }
-  }
+  static Future<String?> getCurrentToken() => _fm.getToken();
 }

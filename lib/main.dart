@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart' show kIsWeb; // ← ADD THIS IMPORT
 
 import 'controllers/auth_controller.dart';
+import 'controllers/course_controller.dart';
+
 import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/login_screen.dart';
@@ -41,8 +43,13 @@ Future<void> main() async {
   await NotificationService.initialize();
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AuthController(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthController()),
+        ChangeNotifierProvider(
+          create: (_) => CourseController(),
+        ), // 👈 added line
+      ],
       child: const XpertBotApp(),
     ),
   );
