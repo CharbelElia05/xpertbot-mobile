@@ -34,15 +34,17 @@ dependencies:
   http: ^1.5.0
   shared_preferences: ^2.5.3
   provider: ^6.1.5+1
-  youtube_player_flutter: ^8.1.2
+  youtube_player_flutter: 9.0.4
   connectivity_plus: ^5.0.1
   firebase_messaging: ^14.7.1
+
   
   # UPDATED FIREBASE PACKAGES - COMPATIBLE VERSIONS:
   firebase_core: ^2.24.0
   firebase_auth: ^4.18.0
   cloud_firestore: ^4.13.0
   firebase_storage: ^11.5.0
+  flutter_inappwebview: 6.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
