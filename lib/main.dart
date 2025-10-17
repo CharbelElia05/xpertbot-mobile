@@ -3,7 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart' show kIsWeb; // ← ADD THIS IMPORT
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'controllers/auth_controller.dart';
 import 'controllers/course_controller.dart';

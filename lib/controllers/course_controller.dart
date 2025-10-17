@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/course_model.dart';
-import '../services/course_service.dart';
 import '../services/offline_service.dart'; // Add this import
 
 class CourseController with ChangeNotifier {
-  final CourseService _courseService = CourseService();
 
   List<Course> _courses = [];
   bool _isLoading = false;

@@ -235,7 +235,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
         const SizedBox(height: 16),
         ...courseController.courses
             .map((course) => _buildCourseItem(course))
-            .toList(),
+            ,
       ],
     );
   }
